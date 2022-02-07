@@ -1,0 +1,7 @@
+[run]
+branch = True
+source = radye/*
+include = radye/*
+omit = */setup.py
+[report]
+include = radye/*
