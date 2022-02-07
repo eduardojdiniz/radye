@@ -3,9 +3,12 @@
 """
 Utilities
 """
+# pylint: disable=line-too-long
 
 from pathlib import Path
-from typing import Union, List
+from typing import Union, List, Dict
+from zipfile import ZipFile  # noqa: E402
+import requests  # noqa: E402
 import ants  # type: ignore
 import torchio as tio  # type: ignore
 import nibabel as nib  # type: ignore
@@ -22,6 +25,7 @@ __all__ = [
     "RYE_OUT",
     "RYE_DATA",
     "RYE_CONF",
+    "download_test_data",
 ]
 
 PathType = Union[str, Path]
@@ -120,3 +124,55 @@ def get_mni(skull_stripped: bool = True) -> ants.ANTsImage:
     if skull_stripped:
         return ants.image_read(str(path_mni_brain))
     return ants.image_read(str(path_mni))
+
+
+def download_test_data() -> Dict[str, Path]:
+    """Download data provided by the bratstoolkit"""
+
+    url = "https://neuronflow.github.io/BraTS-Preprocessor/downloads/example_data.zip"  # noqa: E501
+    study = "exam_import"
+    subject = "OtherEXampleFromTCIA"
+    t1w_name = "T1_AX_OtherEXampleTCIA_TCGA-FG-6692_Si_TCGA-FG-6692_T1_AX_SE_10_se2d1_t1.nii.gz"  # noqa: E501
+    t1c_name = "MRHR_T1_AX_POST_GAD_OtherEXampleTCIA_TCGA-FG-6692_Si_TCGA-FG-6692_MRHR_T1_AX_POST_GAD_SE_13_se2d1r_t1c.nii.gz"  # noqa: E501
+    t2w_name = "MRHR_T2_AX_OtherEXampleTCIA_TCGA-FG-6692_Si_TCGA-FG-6692_MRHR_T2_AX_SE_2_tse2d1_11_t2.nii.gz"  # noqa: E501
+    flair_name = "MRHR_FLAIR_AX_OtherEXampleTCIA_TCGA-FG-6692_Si_TCGA-FG-6692_MRHR_FLAIR_AX_SE_IR_5_tir2d1_21_fla.nii.gz"  # noqa: E501
+
+    data_dir = ensure_exists(RYE_DATA)
+    local_path = data_dir / "example_data.zip"
+
+    zip_paths = {
+        "T1w": f"{study}/{subject}/{t1w_name}",
+        "T1c": f"{study}/{subject}/{t1c_name}",
+        "T2w": f"{study}/{subject}/{t2w_name}",
+        "FLAIR": f"{study}/{subject}/{flair_name}",
+    }
+
+    output_paths = {
+        "T1w": data_dir / "example_T1w.nii.gz",
+        "T1c": data_dir / "example_T1c.nii.gz",
+        "T2w": data_dir / "example_T2w.nii.gz",
+        "FLAIR": data_dir / "example_FLAIR.nii.gz",
+    }
+
+    is_downloaded = all(path.is_file() for _, path in output_paths.items())
+
+    # Download the file contents in binary format
+    if not is_downloaded:
+        request = requests.get(url)
+
+        with local_path.open("wb") as fid:
+            fid.write(request.content)
+
+        # extracting 4 modalities from patient 'OtherEXampleFromTCIA'
+        with ZipFile(local_path, "r") as zid:
+            for mod, path in zip_paths.items():
+                with output_paths[mod].open("wb") as fid:
+                    fid.write(zid.read(path))
+
+        # remove .zip file
+        local_path.unlink()
+        print("Images have been downloaded and extracted properly.")
+    else:
+        print("Images already downloaded.")
+
+    return output_paths
