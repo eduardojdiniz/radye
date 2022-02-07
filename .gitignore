@@ -88,6 +88,8 @@ dataset/
 multirun/*
 */outputs/*
 outputs/*
+*/output/*
+output/*
 
 # Mac OS-specific storage files
 .DS_Store
